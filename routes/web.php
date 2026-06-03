@@ -19,7 +19,6 @@ Route::middleware('auth')->group(function () {
 });
 Route::middleware('auth')->group(function () {
     Route::resource('employees', EmployeeController::class)->except(['show']);
-    Route::resource('employees', EmployeeController::class)->except(['show']);
 });
 
 require __DIR__.'/auth.php';
