@@ -3,6 +3,7 @@
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TimeEntryController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -19,6 +20,12 @@ Route::middleware('auth')->group(function () {
 });
 Route::middleware('auth')->group(function () {
     Route::resource('employees', EmployeeController::class)->except(['show']);
+
+    Route::get('time-entries', [TimeEntryController::class, 'index'])->name('time-entries.index');
+    Route::post('time-entries', [TimeEntryController::class, 'store'])->name('time-entries.store');
+    Route::get('time-entries/{timeEntry}/edit', [TimeEntryController::class, 'edit'])->name('time-entries.edit');
+    Route::put('time-entries/{timeEntry}', [TimeEntryController::class, 'update'])->name('time-entries.update');
+    Route::delete('time-entries/{timeEntry}', [TimeEntryController::class, 'destroy'])->name('time-entries.destroy');
 });
 
 require __DIR__.'/auth.php';
