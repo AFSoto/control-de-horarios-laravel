@@ -23,7 +23,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('employees', EmployeeController::class)->except(['show']);
 
     Route::get('time-entries', [TimeEntryController::class, 'index'])->name('time-entries.index');
-    Route::post('time-entries', [TimeEntryController::class, 'store'])->name('time-entries.store');
+    Route::post('time-entries/clock-out', [TimeEntryController::class, 'clockOut'])->name('time-entries.clock-out');
+    Route::post('time-entries/clock-in', [TimeEntryController::class, 'clockIn'])->name('time-entries.clock-in');
     Route::get('time-entries/{timeEntry}/edit', [TimeEntryController::class, 'edit'])->name('time-entries.edit');
     Route::put('time-entries/{timeEntry}', [TimeEntryController::class, 'update'])->name('time-entries.update');
     Route::delete('time-entries/{timeEntry}', [TimeEntryController::class, 'destroy'])->name('time-entries.destroy');

@@ -13,48 +13,93 @@ class TimeEntryController extends Controller
     {
         $date = $request->get('date', now()->toDateString());
 
-        $employees= Employee::where('is_active', true)
-        ->with(['timeEntries' => function ($query) use ($date) {
-            $query->where('date' , $date);
-        }])
-        ->orderBy('first_name')
-        ->get();
+        $employees = Employee::where('is_active', true)
+            ->with(['timeEntries' => function ($query) use ($date) {
+                $query->where('date', $date);
+            }])
+            ->orderBy('first_name')
+            ->get();
 
-        return view('time-entries.index', compact('employees' , 'date'));
+        // Organizar los registros por empleado para fácil acceso en la vista
+        $employees->each(function ($employee) {
+            $employee->breakfast = $employee->timeEntries->where('type', 'breakfast')->first();
+            $employee->lunch = $employee->timeEntries->where('type', 'lunch')->first();
+        });
+
+        return view('time-entries.index', compact('employees', 'date'));
     }
 
-    public function store(Request $request)
+    public function clockOut(Request $request)
     {
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
             'date' => 'required|date',
             'type' => 'required|in:breakfast,lunch',
-            'time_out' => 'required|date_format:H:i',
-            'time_in' => 'required|date_format:H:i|after:time_out',
         ]);
 
-        $employee = Employee::findOrFail($validated['employee_id']);
+        // Verificar que no exista ya un registro para ese empleado, fecha y tipo
+        $exists = TimeEntry::where('employee_id', $validated['employee_id'])
+            ->where('date', $validated['date'])
+            ->where('type', $validated['type'])
+            ->exists();
 
-        $timeOut = Carbon::createFromFormat('H:i', $validated['time_out']);
-        $timeIn = Carbon::createFromFormat('H:i', $validated['time_in']);
-        $minutesTaken = $timeIn->diffInMinutes($timeOut);
-
-        $allowedMinutes = $employee->getAllowedMinutes($validated['type']);
-        $minutesOwed = max(0,$minutesTaken - $allowedMinutes);
+        if ($exists) {
+            return back()->with('error', 'Ya existe un registro para este empleado y tipo de comida hoy.');
+        }
 
         TimeEntry::create([
-            'employee_id' => $employee->id,
+            'employee_id' => $validated['employee_id'],
             'date' => $validated['date'],
             'type' => $validated['type'],
-            'time_out' => $validated['time_out'],
-            'time_in' => $validated['time_in'],
+            'time_out' => now()->format('H:i:s'),
+            'time_in' => null,
+            'minutes_taken' => 0,
+            'minutes_owed' => 0,
+        ]);
+
+        $employee = Employee::find($validated['employee_id']);
+        $typeLabel = $validated['type'] === 'breakfast' ? 'desayuno' : 'almuerzo';
+
+        return back()->with('success', "Salida de {$typeLabel} registrada para {$employee->full_name}.");
+    }
+
+    public function clockIn(Request $request)
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'date' => 'required|date',
+            'type' => 'required|in:breakfast,lunch',
+        ]);
+
+        $entry = TimeEntry::where('employee_id', $validated['employee_id'])
+            ->where('date', $validated['date'])
+            ->where('type', $validated['type'])
+            ->whereNull('time_in')
+            ->first();
+
+        if (!$entry) {
+            return back()->with('error', 'No se encontró un registro de salida pendiente.');
+        }
+
+        $timeOut = Carbon::parse($entry->time_out);
+        $timeIn = now();
+        $minutesTaken = $timeOut->diffInMinutes($timeIn);
+
+        $employee = Employee::find($validated['employee_id']);
+        $allowedMinutes = $employee->getAllowedMinutes($validated['type']);
+        $minutesOwed = max(0, $minutesTaken - $allowedMinutes);
+
+        $entry->update([
+            'time_in' => $timeIn->format('H:i:s'),
             'minutes_taken' => $minutesTaken,
             'minutes_owed' => $minutesOwed,
         ]);
 
-        return redirect()->route('time-entries.index', ['date' => $validated['date']])
-        ->with('succes', "tiempo registrado para  {$employee->full_name}. " .
-        ($minutesOwed > 0 ? "debe {$minutesOwed} minutos . " : "sin tiempo pendiente"));
+        $typeLabel = $validated['type'] === 'breakfast' ? 'desayuno' : 'almuerzo';
+        $message = "Regreso de {$typeLabel} registrado para {$employee->full_name}. ";
+        $message .= $minutesOwed > 0 ? "Debe {$minutesOwed} minutos." : "Sin tiempo pendiente.";
+
+        return back()->with('success', $message);
     }
 
     public function edit(TimeEntry $timeEntry)
@@ -78,7 +123,6 @@ class TimeEntryController extends Controller
         $allowedMinutes = $timeEntry->employee->getAllowedMinutes($timeEntry->type);
         $newMinutesOwed = max(0, $minutesTaken - $allowedMinutes);
 
-        // Guardar el ajuste en el log
         $timeEntry->adjustments()->create([
             'user_id' => auth()->id(),
             'old_minutes_owed' => $timeEntry->minutes_owed,
@@ -105,6 +149,4 @@ class TimeEntryController extends Controller
         return redirect()->route('time-entries.index', ['date' => $date])
             ->with('success', 'Registro eliminado.');
     }
-
-
 }
