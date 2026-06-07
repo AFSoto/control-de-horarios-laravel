@@ -3,13 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Employee;
+use App\Models\TimeEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Override;
 use Tests\TestCase;
 
-class TimeEntryTest extends TestCase
+class TimeEntryFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -17,15 +16,14 @@ class TimeEntryTest extends TestCase
     private Employee $maleEmployee;
     private Employee $femaleEmployee;
 
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->admin = User::factory()->create();
 
-        $this->maleEmployee =   Employee::create([
-            'first_name' => 'juan',
-            'last_name' => 'perez',
+        $this->maleEmployee = Employee::create([
+            'first_name' => 'Juan',
+            'last_name' => 'Pérez',
             'gender' => 'male',
             'hire_date' => '2024-01-15',
         ]);
@@ -38,17 +36,17 @@ class TimeEntryTest extends TestCase
         ]);
     }
 
-    public function test_admin_cannot_see_time_entries_page(): void
-        {
-            $response = $this->get('/time-entries');
-            $response->assertRedirect('/login');
-        }
+    public function test_guest_cannot_access_time_entries(): void
+    {
+        $response = $this->get('/time-entries');
+        $response->assertRedirect('/login');
+    }
 
     public function test_admin_can_see_time_entries_page(): void
     {
         $response = $this->actingAs($this->admin)->get('/time-entries');
         $response->assertStatus(200);
-        $response->assertSee('registro de tiempos');
+        $response->assertSee('Registro de Tiempos');
     }
 
     public function test_admin_can_register_breakfast_for_male(): void

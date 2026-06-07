@@ -26,17 +26,17 @@ class TimeEntryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|exists:employee,id',
+            'employee_id' => 'required|exists:employees,id',
             'date' => 'required|date',
             'type' => 'required|in:breakfast,lunch',
             'time_out' => 'required|date_format:H:i',
-            'time_in' => 'requred|date_format:H:i|after:time_out',
+            'time_in' => 'required|date_format:H:i|after:time_out',
         ]);
 
         $employee = Employee::findOrFail($validated['employee_id']);
 
         $timeOut = Carbon::createFromFormat('H:i', $validated['time_out']);
-        $timeIn = Carbon::createFromFormat('H:i', $validated['tmie_in']);
+        $timeIn = Carbon::createFromFormat('H:i', $validated['time_in']);
         $minutesTaken = $timeIn->diffInMinutes($timeOut);
 
         $allowedMinutes = $employee->getAllowedMinutes($validated['type']);
